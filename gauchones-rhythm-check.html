@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>GAUCHONES ▸ RHYTHM CHECK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@1,600;1,700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0F13;
+    --panel:#10161C;
+    --rose:#DE5A74;
+    --ambar:#DDBC7F;
+    --salvia:#78A18F;
+    --txt:#E8EDF0;
+    --dim:#7D8A93;
+    --display:'Industry','Chakra Petch',sans-serif;
+    --mono:'Source Code Pro',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden}
+  body{
+    background:var(--bg);
+    color:var(--txt);
+    font-family:var(--mono);
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #stage{position:fixed;inset:0;width:100%;height:100dvh;touch-action:none}
+  canvas{display:block;width:100%;height:100%}
+
+  /* scanlines + vignette */
+  .crt{
+    position:fixed;inset:0;pointer-events:none;z-index:40;
+    background:
+      radial-gradient(ellipse at 50% 60%, transparent 55%, rgba(0,0,0,.45) 100%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px);
+    mix-blend-mode:overlay;
+  }
+  .flash{
+    position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:50;
+  }
+  .flash.on{animation:crtflash .5s ease-out forwards}
+  @keyframes crtflash{0%{opacity:.9}100%{opacity:0}}
+  @media (prefers-reduced-motion: reduce){
+    .flash.on{animation:none;opacity:0}
+  }
+
+  /* prismatic stripe: stacked horizontal lines */
+  .stripe{width:100%;display:flex;flex-direction:column;gap:3px}
+  .stripe i{display:block;height:3px;border-radius:2px}
+  .stripe i:nth-child(1){background:linear-gradient(90deg,var(--salvia),transparent)}
+  .stripe i:nth-child(2){background:linear-gradient(90deg,var(--ambar),transparent 85%)}
+  .stripe i:nth-child(3){background:linear-gradient(90deg,var(--rose),transparent 70%)}
+
+  /* ------- screens ------- */
+  .screen{
+    position:fixed;inset:0;z-index:30;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:22px;padding:28px;text-align:center;
+    background:linear-gradient(180deg, rgba(11,15,19,.86), rgba(11,15,19,.96));
+    backdrop-filter:blur(2px);
+    transition:opacity .35s ease, visibility .35s;
+  }
+  .screen.hidden{opacity:0;visibility:hidden;pointer-events:none}
+
+  .meta{font-size:11px;letter-spacing:.28em;color:var(--dim);text-transform:uppercase}
+  .meta b{color:var(--ambar);font-weight:600}
+
+  h1{
+    font-family:var(--display);font-style:italic;font-weight:700;
+    font-size:clamp(40px,9vw,76px);letter-spacing:.01em;line-height:.95;
+    text-transform:uppercase;
+  }
+  h1 .gr{
+    background:linear-gradient(90deg,var(--rose) 0%,var(--ambar) 50%,var(--salvia) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .title-stripe{max-width:340px}
+
+  .howto{
+    display:flex;gap:26px;align-items:flex-start;justify-content:center;flex-wrap:wrap;
+    font-size:11px;color:var(--dim);letter-spacing:.14em;text-transform:uppercase
+  }
+  .howto .pad{display:grid;grid-template-columns:repeat(3,34px);grid-template-rows:repeat(3,34px);gap:4px;margin:0 auto 10px}
+  .howto .k{
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid #2A343D;border-radius:6px;color:var(--txt);
+    font-size:13px;font-weight:600;background:var(--panel)
+  }
+  .howto .k.e{border:none;background:transparent}
+  .howto .k.c{color:var(--ambar);border-color:rgba(221,188,127,.45)}
+  .howto .k.s{color:var(--salvia);border-color:rgba(120,161,143,.45)}
+  .howto .k.r{color:var(--rose);border-color:rgba(222,90,116,.45)}
+
+  button.start{
+    font-family:var(--display);font-style:italic;font-weight:700;
+    font-size:20px;letter-spacing:.08em;text-transform:uppercase;
+    color:#0B0F13;background:var(--ambar);
+    border:none;border-radius:4px;padding:16px 54px;cursor:pointer;
+    box-shadow:0 0 28px rgba(221,188,127,.35);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  button.start:hover{transform:translateY(-1px);box-shadow:0 0 40px rgba(221,188,127,.5)}
+  button.start:focus-visible{outline:2px solid var(--txt);outline-offset:3px}
+  button.ghost{
+    font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    background:transparent;color:var(--dim);border:1px solid #2A343D;border-radius:4px;
+    padding:10px 22px;cursor:pointer
+  }
+  button.ghost:hover{color:var(--txt);border-color:var(--dim)}
+  button.ghost:focus-visible{outline:2px solid var(--txt);outline-offset:3px}
+
+  /* ------- results ------- */
+  .grade{
+    font-family:var(--display);font-style:italic;font-weight:700;
+    font-size:clamp(80px,18vw,150px);line-height:1;
+  }
+  .stats{display:flex;gap:8px;flex-direction:column;width:min(320px,80vw)}
+  .stats .row{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);
+    border-bottom:1px dashed #232C34;padding:7px 2px
+  }
+  .stats .row b{font-size:16px;letter-spacing:.06em;color:var(--txt);font-weight:600}
+  .stats .row.p b{color:var(--ambar)}
+  .stats .row.g b{color:var(--salvia)}
+  .stats .row.o b{color:var(--rose)}
+
+  /* ------- HUD ------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:20;display:none}
+  #hud.on{display:block}
+  .tc{
+    position:absolute;top:calc(12px + env(safe-area-inset-top));left:16px;
+    font-size:11px;letter-spacing:.2em;color:var(--dim)
+  }
+  .tc .rec{color:var(--rose);animation:blink 1.2s steps(2) infinite}
+  @keyframes blink{50%{opacity:.15}}
+  .sc{
+    position:absolute;top:calc(12px + env(safe-area-inset-top));right:16px;
+    font-size:12px;letter-spacing:.2em;color:var(--txt);text-align:right
+  }
+  .sc small{display:block;font-size:9px;color:var(--dim);letter-spacing:.3em}
+</style>
+</head>
+<body>
+
+<div id="stage"><canvas id="cv"></canvas></div>
+
+<div id="hud">
+  <div class="tc"><span class="rec">●</span> REC&nbsp;&nbsp;TC <span id="tcv">00:00:00:00</span></div>
+  <div class="sc"><small>SCORE</small><span id="scv">0000000</span></div>
+</div>
+
+<!-- TITLE -->
+<div class="screen" id="scr-title">
+  <div class="meta">GAUCHONES ▸ SIDE B <b>//</b> DEMO_01</div>
+  <h1><span class="gr">RHYTHM</span><br>CHECK</h1>
+  <div class="stripe title-stripe"><i></i><i></i><i></i></div>
+  <div class="howto">
+    <div>
+      <div class="pad">
+        <span class="k s">Q</span><span class="k e"></span><span class="k s">E</span>
+        <span class="k e"></span><span class="k c">S</span><span class="k e"></span>
+        <span class="k r">Z</span><span class="k e"></span><span class="k r">C</span>
+      </div>
+      TECLADO
+    </div>
+    <div style="max-width:180px;line-height:1.9">
+      NO CELULAR, TOQUE NOS<br>PAINÉIS QUANDO A SETA<br>CHEGAR NA BASE
+    </div>
+  </div>
+  <button class="start" id="btn-start">Iniciar</button>
+  <div class="meta">FAIXA: SÍNTESE INTERNA · 128 BPM · 01:04</div>
+</div>
+
+<!-- RESULTS -->
+<div class="screen hidden" id="scr-results">
+  <div class="meta">PLAYBACK COMPLETO <b>//</b> RESULTADO</div>
+  <div class="grade" id="gradev">A</div>
+  <div class="stripe title-stripe"><i></i><i></i><i></i></div>
+  <div class="stats">
+    <div class="row p"><span>Perfect</span><b id="r-p">0</b></div>
+    <div class="row g"><span>Great</span><b id="r-g">0</b></div>
+    <div class="row"><span>Good</span><b id="r-o">0</b></div>
+    <div class="row o"><span>Miss</span><b id="r-m">0</b></div>
+    <div class="row"><span>Combo máx</span><b id="r-c">0</b></div>
+    <div class="row"><span>Score</span><b id="r-s">0</b></div>
+  </div>
+  <button class="start" id="btn-retry">Jogar de novo</button>
+  <button class="ghost" id="btn-title">Voltar ao início</button>
+</div>
+
+<div class="crt"></div>
+<div class="flash" id="flash"></div>
+
+<script>
+"use strict";
+/* =========================================================
+   GAUCHONES · RHYTHM CHECK — protótipo
+   Clock mestre: AudioContext.currentTime
+   ========================================================= */
+
+const BPM = 128;
+const SPB = 60 / BPM;              // segundos por beat
+const TOTAL_BEATS = 128;           // 32 compassos ~ 60s
+const APPROACH = 1.5;              // seg que a nota fica visível
+const WIN = { perfect: 0.070, great: 0.140, good: 0.210 };
+
+const LANES = 5;                   // ordem: DL, UL, C, UR, DR
+const LANE_KEYS = { z:0, q:1, s:2, e:3, c:4 };
+const LANE_COLOR = ['#DE5A74','#78A18F','#DDBC7F','#78A18F','#DE5A74'];
+const LANE_ROT   = [225, -45, 0, 45, 135]; // graus; 0 = losango central
+const LANE_LIFT  = [0.32, -0.5, -0.09, -0.5, 0.32]; // desloc. vertical (× colW) → forma o X
+
+/* ---------- estado ---------- */
+let ctxA = null, noiseBuf = null;
+let state = 'title';               // title | count | play | results
+let songStart = 0;                 // ctxA.currentTime do beat 0
+let schedBeat = 0, schedTimer = null;
+let notes = [], stats, score, combo, maxCombo;
+let judgeFx = { text:'', color:'#fff', t:-9 };
+let laneFlash = [0,0,0,0,0];
+
+/* ---------- canvas ---------- */
+const cv = document.getElementById('cv');
+const g = cv.getContext('2d');
+let W=0, H=0, DPR=1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  g.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+function layout(){
+  const fieldW = Math.min(W, 520);
+  const colW = fieldW / LANES;
+  const x0 = (W - fieldW) / 2;
+  const baseY = H - Math.max(120, H * 0.16) - colW * 0.2;
+  const recY = LANE_LIFT.map(l => baseY + l * colW);
+  return { colW, x0, recY, size: colW * 0.72 };
+}
+
+/* ---------- chart ---------- */
+function buildChart(){
+  const n = [];
+  const add = (beat, ...ls) => ls.forEach(l => n.push({ t: beat * SPB, lane: l, judged:false, res:null }));
+  // aquecimento (b8–15): quarters
+  [2,2,1,3,2,2,0,4].forEach((l,i)=>add(8+i,l));
+  // seção A (b16–47): quarters, padrões por compasso
+  const A = [[0,1,2,3],[4,3,2,1],[0,4,1,3],[2,1,2,3]];
+  for(let bar=4; bar<12; bar++){
+    const p = A[bar % 4];
+    for(let b=0;b<4;b++) add(bar*4+b, p[b]);
+  }
+  // seção B (b48–79): colcheias em 0,1,1.5,2,3,3.5
+  const B = [[0,1,2,3,4,2],[4,3,2,1,0,2],[1,0,2,4,3,2],[0,4,2,1,3,2]];
+  const OFF = [0,1,1.5,2,3,3.5];
+  for(let bar=12; bar<20; bar++){
+    const p = B[bar % 4];
+    for(let i=0;i<6;i++) add(bar*4+OFF[i], p[i]);
+  }
+  // seção C (b80–111): salto no início + corrida de colcheias
+  const C = [[1,2,3,2,1,2],[3,2,1,2,3,2],[0,2,4,2,0,2],[4,2,0,2,4,2]];
+  const OFFC = [1,1.5,2,2.5,3,3.5];
+  for(let bar=20; bar<28; bar++){
+    if(bar % 2 === 0) add(bar*4, 0, 4); else add(bar*4, 1, 3);
+    const p = C[bar % 4];
+    for(let i=0;i<6;i++) add(bar*4+OFFC[i], p[i]);
+  }
+  // final (b112–123): quarters descendo o ritmo
+  const F = [2,1,3,2, 0,2,4,2, 1,3,0,4];
+  for(let i=0;i<12;i++) add(112+i, F[i]);
+  add(124, 1, 3); // salto final
+  n.sort((a,b)=>a.t-b.t);
+  return n;
+}
+
+/* ---------- áudio (síntese) ---------- */
+function initAudio(){
+  if(ctxA) return;
+  ctxA = new (window.AudioContext || window.webkitAudioContext)();
+  const len = ctxA.sampleRate * 1;
+  noiseBuf = ctxA.createBuffer(1, len, ctxA.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i] = Math.random()*2-1;
+}
+function env(gain, t, peak, dur){
+  gain.gain.setValueAtTime(peak, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t+dur);
+}
+function kick(t){
+  const o = ctxA.createOscillator(), v = ctxA.createGain();
+  o.type='sine';
+  o.frequency.setValueAtTime(150, t);
+  o.frequency.exponentialRampToValueAtTime(44, t+0.12);
+  env(v, t, 0.9, 0.24);
+  o.connect(v).connect(ctxA.destination);
+  o.start(t); o.stop(t+0.26);
+}
+function hat(t, open){
+  const s = ctxA.createBufferSource(), v = ctxA.createGain(), f = ctxA.createBiquadFilter();
+  s.buffer = noiseBuf; f.type='highpass'; f.frequency.value = 7500;
+  env(v, t, 0.14, open ? 0.22 : 0.045);
+  s.connect(f).connect(v).connect(ctxA.destination);
+  s.start(t); s.stop(t+0.25);
+}
+function clap(t){
+  const s = ctxA.createBufferSource(), v = ctxA.createGain(), f = ctxA.createBiquadFilter();
+  s.buffer = noiseBuf; f.type='bandpass'; f.frequency.value = 1700; f.Q.value = 1.1;
+  env(v, t, 0.4, 0.13);
+  s.connect(f).connect(v).connect(ctxA.destination);
+  s.start(t); s.stop(t+0.16);
+}
+function bass(t, freq){
+  const o = ctxA.createOscillator(), v = ctxA.createGain(), f = ctxA.createBiquadFilter();
+  o.type='sawtooth'; o.frequency.value = freq;
+  f.type='lowpass'; f.frequency.value = 620; f.Q.value = 1.2;
+  env(v, t, 0.26, 0.20);
+  o.connect(f).connect(v).connect(ctxA.destination);
+  o.start(t); o.stop(t+0.22);
+}
+function lead(t, freq){
+  const o = ctxA.createOscillator(), v = ctxA.createGain(), f = ctxA.createBiquadFilter();
+  o.type='square'; o.frequency.value = freq;
+  f.type='lowpass'; f.frequency.value = 2600;
+  env(v, t, 0.075, 0.18);
+  o.connect(f).connect(v).connect(ctxA.destination);
+  o.start(t); o.stop(t+0.2);
+}
+function tick(t, hi){
+  const o = ctxA.createOscillator(), v = ctxA.createGain();
+  o.type='square'; o.frequency.value = hi ? 1320 : 880;
+  env(v, t, 0.15, 0.07);
+  o.connect(v).connect(ctxA.destination);
+  o.start(t); o.stop(t+0.08);
+}
+
+const ROOTS = [55, 43.65, 65.41, 49];                    // Am F C G
+const ARP = [220, 261.63, 293.66, 329.63, 392, 440];     // pentatônica Am
+
+function scheduleStep(b){ // b em passos de 0.5 beat
+  const t = songStart + b * SPB;
+  const bar = Math.floor(b/4), inBar = b % 4, off = (b % 1) === 0.5;
+  if(off) hat(t, bar>=20 && inBar===3.5);
+  if(!off && b >= 16) kick(t);
+  if(!off && b >= 48 && (inBar===1 || inBar===3)) clap(t);
+  const root = ROOTS[bar % 4];
+  if(b >= 4) bass(t, off ? root*2 : root);
+  if(b >= 48){ const i = Math.floor(b*2); lead(t, ARP[i % ARP.length] * (bar>=20?1:0.5) ); }
+  if(b === 124){ hat(t,true); clap(t); }
+}
+function scheduler(){
+  if(!ctxA || state==='results' || state==='title') return;
+  const horizon = ctxA.currentTime + 0.18;
+  while(schedBeat < TOTAL_BEATS && songStart + schedBeat*SPB < horizon){
+    scheduleStep(schedBeat);
+    schedBeat += 0.5;
+  }
+}
+
+/* ---------- jogo ---------- */
+function startGame(){
+  initAudio();
+  ctxA.resume();
+  notes = buildChart();
+  stats = { perfect:0, great:0, good:0, miss:0 };
+  score = 0; combo = 0; maxCombo = 0;
+  judgeFx.t = -9; laneFlash = [0,0,0,0,0];
+  songStart = ctxA.currentTime + 4 * SPB + 0.35;  // count-in de 4 beats
+  for(let i=4;i>0;i--) tick(songStart - i*SPB, i===1);
+  schedBeat = 0;
+  if(schedTimer) clearInterval(schedTimer);
+  schedTimer = setInterval(scheduler, 25);
+  state = 'count';
+  document.getElementById('scr-title').classList.add('hidden');
+  document.getElementById('scr-results').classList.add('hidden');
+  document.getElementById('hud').classList.add('on');
+  const fl = document.getElementById('flash');
+  fl.classList.remove('on'); void fl.offsetWidth; fl.classList.add('on');
+}
+
+function songNow(){ return ctxA ? ctxA.currentTime - songStart : -99; }
+
+function judge(lane){
+  const now = songNow();
+  laneFlash[lane] = 1;
+  let best = null, bestD = 1e9;
+  for(const n of notes){
+    if(n.judged || n.lane !== lane) continue;
+    const d = n.t - now;
+    if(d > WIN.good) break;
+    const ad = Math.abs(d);
+    if(ad <= WIN.good && ad < bestD){ best = n; bestD = ad; }
+  }
+  if(!best) return;
+  best.judged = true;
+  let res, pts;
+  if(bestD <= WIN.perfect){ res='perfect'; pts=100; }
+  else if(bestD <= WIN.great){ res='great'; pts=70; }
+  else { res='good'; pts=40; }
+  best.res = res;
+  stats[res]++;
+  combo++; maxCombo = Math.max(maxCombo, combo);
+  score += pts + Math.min(combo, 50);
+  showJudge(res);
+}
+function miss(n){
+  n.judged = true; n.res = 'miss';
+  stats.miss++; combo = 0;
+  showJudge('miss');
+}
+const JCOL = { perfect:'#DDBC7F', great:'#78A18F', good:'#E8EDF0', miss:'#5A6670' };
+const JTXT = { perfect:'PERFECT', great:'GREAT', good:'GOOD', miss:'MISS' };
+function showJudge(res){
+  judgeFx = { text: JTXT[res], color: JCOL[res], t: songNow() };
+}
+
+/* ---------- input ---------- */
+window.addEventListener('keydown', e => {
+  if(e.repeat) return;
+  const k = e.key.toLowerCase();
+  if(state === 'title' && (k===' '||k==='enter')){ startGame(); return; }
+  if(state !== 'play' && state !== 'count') return;
+  if(k in LANE_KEYS){ e.preventDefault(); judge(LANE_KEYS[k]); }
+});
+cv.addEventListener('touchstart', e => {
+  if(state !== 'play' && state !== 'count') return;
+  e.preventDefault();
+  const { colW, x0 } = layout();
+  for(const t of e.changedTouches){
+    if(t.clientY < H * 0.45) continue;                 // zona de toque: metade de baixo
+    const lane = Math.floor((t.clientX - x0) / colW);
+    if(lane >= 0 && lane < LANES) judge(lane);
+  }
+}, { passive:false });
+cv.addEventListener('mousedown', e => {
+  if(state !== 'play' && state !== 'count') return;
+  const { colW, x0 } = layout();
+  if(e.clientY < H * 0.45) return;
+  const lane = Math.floor((e.clientX - x0) / colW);
+  if(lane >= 0 && lane < LANES) judge(lane);
+});
+
+/* ---------- desenho ---------- */
+function arrowPath(size){
+  const s = size/2;
+  g.beginPath();
+  g.moveTo(0, -s);
+  g.lineTo(s*0.82, s*0.30);
+  g.lineTo(s*0.30, s*0.30);
+  g.lineTo(s*0.30, s);
+  g.lineTo(-s*0.30, s);
+  g.lineTo(-s*0.30, s*0.30);
+  g.lineTo(-s*0.82, s*0.30);
+  g.closePath();
+}
+function diamondPath(size){
+  const s = size/2;
+  g.beginPath();
+  g.moveTo(0,-s); g.lineTo(s*0.72,0); g.lineTo(0,s); g.lineTo(-s*0.72,0);
+  g.closePath();
+}
+function drawPanel(x, y, lane, size, mode, alpha){
+  g.save();
+  g.translate(x, y);
+  g.rotate(LANE_ROT[lane] * Math.PI/180);
+  g.globalAlpha = alpha;
+  const col = LANE_COLOR[lane];
+  if(lane === 2) diamondPath(size); else arrowPath(size);
+  if(mode === 'note'){
+    g.shadowColor = col; g.shadowBlur = 16;
+    g.fillStyle = col; g.fill();
+    g.shadowBlur = 0;
+    g.lineWidth = 1.5; g.strokeStyle = 'rgba(11,15,19,.55)'; g.stroke();
+  } else {
+    g.lineWidth = 2;
+    g.strokeStyle = col;
+    g.stroke();
+    if(laneFlash[lane] > 0.02){
+      g.globalAlpha = alpha * laneFlash[lane] * 0.5;
+      g.fillStyle = col; g.fill();
+    }
+  }
+  g.restore();
+}
+
+function drawBackground(now){
+  g.fillStyle = '#0B0F13';
+  g.fillRect(0,0,W,H);
+  // terreno wireframe atmosférico
+  g.save();
+  g.globalAlpha = 0.16;
+  const rows = 5;
+  for(let r=0;r<rows;r++){
+    const yBase = H*0.62 + r*(H*0.075);
+    g.beginPath();
+    for(let x=0;x<=W;x+=14){
+      const y = yBase
+        + Math.sin(x*0.012 + r*1.7 + now*0.35) * 9
+        + Math.sin(x*0.004 - r + now*0.12) * 16;
+      x===0 ? g.moveTo(x,y) : g.lineTo(x,y);
+    }
+    g.strokeStyle = r===2 ? '#DDBC7F' : '#3A4A55';
+    g.lineWidth = r===2 ? 1.2 : 1;
+    g.stroke();
+  }
+  g.restore();
+}
+
+function fmtTC(sec){
+  if(sec < 0) sec = 0;
+  const m = Math.floor(sec/60), s = Math.floor(sec%60), f = Math.floor((sec%1)*30);
+  const p = v => String(v).padStart(2,'0');
+  return `00:${p(m)}:${p(s)}:${p(f)}`;
+}
+
+const tcv = document.getElementById('tcv');
+const scv = document.getElementById('scv');
+
+function frame(){
+  requestAnimationFrame(frame);
+  const now = ctxA ? songNow() : 0;
+  drawBackground(now);
+  if(state !== 'play' && state !== 'count') return;
+
+  const { colW, x0, recY, size } = layout();
+
+  // fim de música → resultados
+  if(now > TOTAL_BEATS * SPB + 1.0){ endGame(); return; }
+  if(state === 'count' && now >= 0) state = 'play';
+
+  // misses
+  for(const n of notes){
+    if(!n.judged && now - n.t > WIN.good) miss(n);
+  }
+
+  // lanes (guias sutis)
+  g.save(); g.globalAlpha = 0.05; g.strokeStyle = '#7D8A93';
+  for(let l=0;l<=LANES;l++){
+    const x = x0 + l*colW;
+    g.beginPath(); g.moveTo(x,0); g.lineTo(x,H); g.stroke();
+  }
+  g.restore();
+
+  // receptores
+  for(let l=0;l<LANES;l++){
+    laneFlash[l] = Math.max(0, laneFlash[l] - 0.08);
+    drawPanel(x0 + colW*(l+0.5), recY[l], l, size, 'receptor', 0.85);
+  }
+
+  // notas
+  const travel = Math.max(...recY) + 80;
+  for(const n of notes){
+    const dt = n.t - now;
+    if(dt > APPROACH || (n.judged && n.res !== 'miss')) continue;
+    if(dt < -0.25) continue;
+    const y = recY[n.lane] - (dt / APPROACH) * travel;
+    const fade = n.judged ? 0.25 : 1;
+    drawPanel(x0 + colW*(n.lane+0.5), y, n.lane, size, 'note', fade);
+  }
+
+  // julgamento + combo
+  const jAge = now - judgeFx.t;
+  if(jAge < 0.6 && judgeFx.text){
+    g.save();
+    g.textAlign = 'center';
+    g.globalAlpha = 1 - Math.max(0, (jAge-0.3)/0.3);
+    const pop = 1 + Math.max(0, 0.12 - jAge) * 2.5;
+    g.font = `600 ${Math.round(20*pop)}px 'Source Code Pro', monospace`;
+    g.fillStyle = judgeFx.color;
+    g.shadowColor = judgeFx.color; g.shadowBlur = 12;
+    g.fillText(judgeFx.text, W/2, H*0.34);
+    g.restore();
+  }
+  if(combo >= 4){
+    g.save();
+    g.textAlign = 'center';
+    g.font = `italic 700 34px 'Industry','Chakra Petch',sans-serif`;
+    g.fillStyle = '#E8EDF0';
+    g.globalAlpha = 0.9;
+    g.fillText(combo, W/2, H*0.42);
+    g.font = `600 10px 'Source Code Pro', monospace`;
+    g.fillStyle = '#7D8A93';
+    g.fillText('C O M B O', W/2, H*0.455);
+    g.restore();
+  }
+  // contagem
+  if(state === 'count'){
+    const beatsLeft = Math.ceil(-now / SPB);
+    g.save();
+    g.textAlign = 'center';
+    g.font = `italic 700 84px 'Industry','Chakra Petch',sans-serif`;
+    g.fillStyle = '#DDBC7F';
+    g.shadowColor = '#DDBC7F'; g.shadowBlur = 24;
+    g.fillText(beatsLeft > 3 ? '' : String(beatsLeft), W/2, H*0.3);
+    g.restore();
+  }
+
+  tcv.textContent = fmtTC(now);
+  scv.textContent = String(score).padStart(7,'0');
+}
+requestAnimationFrame(frame);
+
+/* ---------- resultados ---------- */
+function endGame(){
+  state = 'results';
+  clearInterval(schedTimer);
+  document.getElementById('hud').classList.remove('on');
+  const total = notes.length;
+  const acc = (stats.perfect*100 + stats.great*70 + stats.good*40) / (total*100);
+  let grade = 'C';
+  if(stats.miss === 0 && acc >= 0.95) grade = 'SS';
+  else if(acc >= 0.9) grade = 'S';
+  else if(acc >= 0.75) grade = 'A';
+  else if(acc >= 0.55) grade = 'B';
+  const gv = document.getElementById('gradev');
+  gv.textContent = grade;
+  gv.style.color = grade==='SS'||grade==='S' ? '#DDBC7F' : grade==='A' ? '#78A18F' : '#E8EDF0';
+  document.getElementById('r-p').textContent = stats.perfect;
+  document.getElementById('r-g').textContent = stats.great;
+  document.getElementById('r-o').textContent = stats.good;
+  document.getElementById('r-m').textContent = stats.miss;
+  document.getElementById('r-c').textContent = maxCombo;
+  document.getElementById('r-s').textContent = String(score).padStart(7,'0');
+  document.getElementById('scr-results').classList.remove('hidden');
+}
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-retry').addEventListener('click', startGame);
+document.getElementById('btn-title').addEventListener('click', () => {
+  state = 'title';
+  document.getElementById('scr-results').classList.add('hidden');
+  document.getElementById('scr-title').classList.remove('hidden');
+});
+</script>
+</body>
+</html>
