@@ -1,0 +1,481 @@
+/* AST-130: minigame no design system.
+   Fontes e paleta vêm do site (Industry Demi Italic + Source Code Pro, tokens
+   GAU); o tratamento CRT — scanlines, vignette, flash, REC/timecode — fica,
+   é a identidade da tela.
+
+   Os tokens têm prefixo --r-* de propósito: antes este arquivo redefinia --bg,
+   --txt e afins no :root e sobrescrevia as variáveis globais de globals.css
+   (import de CSS no Next é global, não fica contido na rota). */
+:root {
+  --r-bg: #0d0b09; /* --bg do site */
+  --r-panel: #171310;
+  --r-line: #2c2620;
+  --r-rose: #e8607e; /* GAU.rose */
+  --r-amber: #f0b64f; /* GAU.amber */
+  --r-sage: #6ec49a; /* GAU.sage */
+  --r-txt: #ede4d3; /* --display */
+  --r-dim: #b8afa0; /* --body */
+
+  /* Pilhas de fonte do site. O canvas lê estas duas via getComputedStyle —
+     JS não consegue resolver var() sozinho. */
+  --rhythm-display: "industry", var(--font-saira), "Arial Narrow", Arial, sans-serif;
+  --rhythm-mono: var(--font-scp), ui-monospace, monospace;
+}
+
+html:has(.rhythm-root),
+body:has(.rhythm-root) {
+  height: 100%;
+  overflow: hidden;
+}
+body:has(.rhythm-root) {
+  background: var(--r-bg);
+  color: var(--r-txt);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rhythm-root {
+  position: fixed;
+  inset: 0;
+  font-family: var(--rhythm-mono);
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  touch-action: none;
+}
+.rhythm-root canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* scanlines + vignette */
+.crt {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background:
+    radial-gradient(ellipse at 50% 60%, transparent 55%, rgba(0, 0, 0, 0.45) 100%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px);
+  mix-blend-mode: overlay;
+}
+.flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+.flash.on {
+  animation: crtflash 0.5s ease-out forwards;
+}
+@keyframes crtflash {
+  0% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flash.on {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* prismatic stripe: stacked horizontal lines */
+.rhythm-root .stripe {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rhythm-root .stripe i {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+}
+.rhythm-root .stripe i:nth-child(1) {
+  background: linear-gradient(90deg, var(--r-sage), transparent);
+}
+.rhythm-root .stripe i:nth-child(2) {
+  background: linear-gradient(90deg, var(--r-amber), transparent 85%);
+}
+.rhythm-root .stripe i:nth-child(3) {
+  background: linear-gradient(90deg, var(--r-rose), transparent 70%);
+}
+
+/* ------- screens ------- */
+.rhythm-root .screen {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* AST-132: com o painel de ajustes a tela de título passa da altura do
+     telefone. flex-start + overflow rolam de verdade (com justify-content:
+     center o topo fica inalcançável); as margens auto abaixo devolvem o
+     centro quando o conteúdo cabe. */
+  justify-content: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: 22px;
+  padding: calc(28px + env(safe-area-inset-top)) 28px
+    calc(28px + env(safe-area-inset-bottom));
+  text-align: center;
+  background: linear-gradient(180deg, rgba(13, 11, 9, 0.86), rgba(13, 11, 9, 0.96));
+  backdrop-filter: blur(2px);
+  transition: opacity 0.35s ease, visibility 0.35s;
+}
+.rhythm-root .screen > :first-child {
+  margin-top: auto;
+}
+.rhythm-root .screen > :last-child {
+  margin-bottom: auto;
+}
+.rhythm-root .screen.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.rhythm-root .meta {
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  color: var(--r-dim);
+  text-transform: uppercase;
+}
+.rhythm-root .meta b {
+  color: var(--r-amber);
+  font-weight: 600;
+}
+
+.rhythm-root h1 {
+  font-family: var(--rhythm-display);
+  font-style: italic;
+  font-weight: 700;
+  font-size: clamp(40px, 9vw, 76px);
+  letter-spacing: 0.01em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+.rhythm-root h1 .gr {
+  background: linear-gradient(90deg, var(--r-rose) 0%, var(--r-amber) 50%, var(--r-sage) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.rhythm-root .title-stripe {
+  max-width: 340px;
+}
+
+.rhythm-root .howto {
+  display: flex;
+  gap: 26px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--r-dim);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.rhythm-root .howto .pad {
+  display: grid;
+  grid-template-columns: repeat(3, 34px);
+  grid-template-rows: repeat(3, 34px);
+  gap: 4px;
+  margin: 0 auto 10px;
+}
+.rhythm-root .howto .k {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--r-line);
+  border-radius: 6px;
+  color: var(--r-txt);
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--r-panel);
+}
+.rhythm-root .howto .k.e {
+  border: none;
+  background: transparent;
+}
+.rhythm-root .howto .k.c {
+  color: var(--r-amber);
+  border-color: rgba(240, 182, 79, 0.45);
+}
+/* .s = setas de cima (Q/E), .r = setas de baixo (Z/C) — AST-130 inverteu as
+   cores: cima em rosé, baixo em sage */
+.rhythm-root .howto .k.s {
+  color: var(--r-rose);
+  border-color: rgba(232, 96, 126, 0.45);
+}
+.rhythm-root .howto .k.r {
+  color: var(--r-sage);
+  border-color: rgba(110, 196, 154, 0.45);
+}
+
+.rhythm-root button.start {
+  font-family: var(--rhythm-display);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #16110a;
+  background: var(--r-amber);
+  border: none;
+  border-radius: 8px;
+  padding: 16px 54px;
+  cursor: pointer;
+  box-shadow: 0 0 2.5rem rgba(240, 182, 79, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.rhythm-root button.start:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 40px rgba(240, 182, 79, 0.5);
+}
+.rhythm-root button.start:focus-visible {
+  outline: 2px solid var(--r-txt);
+  outline-offset: 3px;
+}
+.rhythm-root button.ghost {
+  font-family: var(--rhythm-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--r-dim);
+  border: 1px solid var(--r-line);
+  border-radius: 8px;
+  padding: 10px 22px;
+  cursor: pointer;
+}
+.rhythm-root button.ghost:hover {
+  color: var(--r-txt);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.rhythm-root button.ghost:focus-visible {
+  outline: 2px solid var(--r-txt);
+  outline-offset: 3px;
+}
+.rhythm-root button.start:disabled,
+.rhythm-root button.ghost:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+.rhythm-root button.ghost.sel {
+  color: var(--r-amber);
+  border-color: var(--r-amber);
+  box-shadow: 0 0 14px rgba(240, 182, 79, 0.25);
+}
+
+/* ------- seletor de faixa/dificuldade ------- */
+.rhythm-root .tracks {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 420px;
+}
+.rhythm-root .song {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.rhythm-root .song-name {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--r-txt);
+}
+.rhythm-root .diffs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.rhythm-root .diffs button {
+  text-transform: uppercase;
+  padding: 8px 16px;
+}
+
+/* ------- painéis dobráveis (ajustes) ------- */
+.rhythm-root .tune {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+}
+.rhythm-root .tune-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 14px;
+  border: 1px solid var(--r-line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.rhythm-root .tune-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 12px 14px;
+  width: 100%;
+}
+/* rótulo em cima do campo: lado a lado, "RE-SEGURAR" quebrava linha e
+   encostava no campo vizinho */
+.rhythm-root .tune-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  text-align: left;
+}
+.rhythm-root .tune-label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--r-txt);
+}
+.rhythm-root .tune-label em {
+  display: block;
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--r-dim);
+}
+.rhythm-root .tune-input {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--rhythm-mono);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--r-amber);
+  background: var(--r-panel);
+  border: 1px solid rgba(240, 182, 79, 0.45);
+  border-radius: 8px;
+  padding: 8px 6px;
+}
+.rhythm-root .tune-input:focus-visible {
+  outline: 2px solid var(--r-txt);
+  outline-offset: 2px;
+}
+.rhythm-root .tune-range {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--r-dim);
+  opacity: 0.7;
+}
+.rhythm-root .tune-note {
+  font-size: 10px;
+  line-height: 1.7;
+  letter-spacing: 0.08em;
+  color: var(--r-dim);
+  max-width: 34ch;
+}
+
+/* ------- results ------- */
+.rhythm-root .grade {
+  font-family: var(--rhythm-display);
+  font-style: italic;
+  font-weight: 700;
+  font-size: clamp(80px, 18vw, 150px);
+  line-height: 1;
+}
+.rhythm-root .stats {
+  display: flex;
+  gap: 8px;
+  flex-direction: column;
+  width: 100%;
+  max-width: 320px;
+}
+.rhythm-root .stats .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--r-dim);
+  border-bottom: 1px dashed var(--r-line);
+  padding: 7px 2px;
+}
+.rhythm-root .stats .row b {
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  color: var(--r-txt);
+  font-weight: 600;
+}
+.rhythm-root .stats .row.p b {
+  color: var(--r-amber);
+}
+.rhythm-root .stats .row.g b {
+  color: var(--r-sage);
+}
+.rhythm-root .stats .row.o b {
+  color: var(--r-rose);
+}
+
+/* ------- HUD ------- */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  display: none;
+}
+#hud.on {
+  display: block;
+}
+.rhythm-root .tc {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 16px;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--r-dim);
+}
+.rhythm-root .tc .rec {
+  color: var(--r-rose);
+  animation: rhythm-blink 1.2s steps(2) infinite;
+}
+@keyframes rhythm-blink {
+  50% {
+    opacity: 0.15;
+  }
+}
+.rhythm-root .sc {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 16px;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--r-txt);
+  text-align: right;
+}
+.rhythm-root .sc small {
+  display: block;
+  font-size: 9px;
+  color: var(--r-dim);
+  letter-spacing: 0.3em;
+}
