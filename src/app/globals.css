@@ -1,0 +1,28 @@
+/*
+ * Reset mínimo. O jogo é auto-contido: rhythm.css define as próprias variáveis
+ * (--r-*, --rhythm-*) sob .rhythm-root, então aqui só ficam o fundo, a fonte
+ * base e o travamento de scroll — nada do design system do site é necessário
+ * além das duas variáveis de fonte que o layout injeta (--font-scp/--font-saira).
+ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  /* --bg do design system (near-black aquecido) */
+  background: #0d0b09;
+  color: #b8afa0;
+  font-family: var(--font-scp), ui-monospace, monospace;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
